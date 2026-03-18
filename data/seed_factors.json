@@ -1,0 +1,35 @@
+[
+    {
+        "name": "Adaptive_Momentum_Volatility_Ratio_20D",
+        "expression": "RANK(TS_MEAN($return, 5) / (TS_STD($return, 20) + 1e-8)) * SIGN(DELTA($close, 5) / ($close + 1e-8))",
+        "hypothesis": "Short-term momentum normalized by longer-term volatility captures risk-adjusted trend signals that predict cross-sectional returns",
+        "ic": 0.042,
+        "ir": 1.15,
+        "ar": 0.128,
+        "max_dd": -0.085,
+        "source_run": "run4",
+        "round": 7
+    },
+    {
+        "name": "Volume_Price_Divergence_10D",
+        "expression": "TS_CORR(RANK($volume), RANK($close), 10) - TS_CORR(RANK($volume), RANK($close), 40)",
+        "hypothesis": "Divergence between short-term and long-term volume-price correlation indicates regime shifts that predict future returns",
+        "ic": 0.038,
+        "ir": 0.98,
+        "ar": 0.105,
+        "max_dd": -0.072,
+        "source_run": "run4",
+        "round": 4
+    },
+    {
+        "name": "Intraday_Range_Mean_Reversion_15D",
+        "expression": "ZSCORE(TS_MEAN(($high - $low) / ($close + 1e-8), 5) - TS_MEAN(($high - $low) / ($close + 1e-8), 15))",
+        "hypothesis": "Mean-reversion in normalized intraday range indicates overbought/oversold conditions in volatility that predict price reversals",
+        "ic": 0.035,
+        "ir": 0.91,
+        "ar": 0.098,
+        "max_dd": -0.068,
+        "source_run": "run2",
+        "round": 3
+    }
+]

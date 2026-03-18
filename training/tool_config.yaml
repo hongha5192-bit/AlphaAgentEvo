@@ -1,0 +1,32 @@
+# Tool configuration for the evaluate_factor tool
+# Used by the GRPO training to define the tool schema for the LLM
+
+tools:
+  - name: evaluate_factor
+    description: >
+      Evaluate a factor expression by backtesting it against historical Vietnam stock
+      market data. Returns the Information Ratio (IR), mean IC, and success status.
+    parameters:
+      type: object
+      properties:
+        factor_name:
+          type: string
+          description: A descriptive name for the factor being evaluated
+        factor_expr:
+          type: string
+          description: >
+            The factor expression to evaluate. Uses the operator DSL with
+            variables like $close, $volume, etc. Example: "RANK(TS_MEAN($return, 5))"
+      required:
+        - factor_expr
+
+# Chat template format for tool calls (Qwen3 format)
+tool_call_format: |
+  <tool_call>
+  {"name": "evaluate_factor", "arguments": {"factor_name": "{factor_name}", "factor_expr": "{factor_expr}"}}
+  </tool_call>
+
+tool_response_format: |
+  <tool_response>
+  {response_json}
+  </tool_response>

@@ -1,0 +1,26 @@
+# Training outputs (checkpoints, completions — 9GB+)
+outputs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Environment
+.env
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Eval results
+eval_results/

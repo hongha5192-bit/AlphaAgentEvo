@@ -1,0 +1,54 @@
+# AlphaAgentEvo GRPO Training Configuration
+# Target: RTX 5090 32GB, single GPU
+
+model:
+  name: /home/dc_analyst/models/Qwen3-4B-Thinking-2507  # Thinking variant (matches original paper)
+  flash_attn: false          # Disable until flash-attn is installed for sm_120
+
+lora:
+  r: 64
+  alpha: 128
+  dropout: 0.05
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  num_generations: 4           # GRPO group size (completions per prompt)
+  max_new_tokens: 5000         # Max tokens per completion (reduced for speed)
+  max_tool_calling_iterations: 3  # Multi-turn tool calling iterations per generation
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 4
+  num_train_epochs: 1
+  max_steps: 150               # Total training steps
+  learning_rate: 1.0e-6
+  bf16: true
+  logging_steps: 1
+  save_steps: 50
+  save_total_limit: 3
+  report_to: tensorboard
+  beta: 0.001                   # KL divergence penalty (paper uses 0.001)
+  seed: 42
+
+data:
+  train_path: data/train.parquet
+  val_path: data/val.parquet
+
+backtest:
+  url: http://localhost:8001
+  default_period: train          # IC computed only on train period during GRPO
+  periods:
+    train:
+      start: "2016-01-01"
+      end: "2023-12-31"
+    val:
+      start: "2024-01-01"
+      end: "2024-12-31"
+    test:
+      start: "2025-01-01"
+      end: "2026-12-31"
