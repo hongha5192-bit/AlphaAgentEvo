@@ -49,7 +49,7 @@
 {"name": "BB_PINCH_ALERT", "expr": "(BB_UPPER($close,20)-BB_LOWER($close,20))/(TS_STD($close,20)+1e-12) - (BB_UPPER($close,60)-BB_LOWER($close,60))/(TS_STD($close,60)+1e-12)"}
 {"name": "VAR_SPREAD_TO_BENCH_DROP", "expr": "((DELTA(TS_VAR($return - $bench_return,30),5) < 0) & (($return - $bench_return) > 0)) ? RANK(-DELTA(TS_VAR($return - $bench_return,30),5)) : nan"}
 {"name": "DDREC_NEAR_HIGH_KICK", "expr": "(((HIGHDAY($high,60) <= 3) & ($close >= TS_MAX($close,30)) & ($amount > PERCENTILE($amount,0.3))) ? RANK(INDUSTRY_NEUTRALIZE($close/TS_MAX($close,30), $industry)) : nan)"}
-{"name": "RESIDUAL_TREND_STRENGTH", "expr": "TS_STD(REGRESI($close,60),20) - TS_STD(REGRESI($close,60),5)"}
+{"name": "RESIDUAL_TREND_STRENGTH", "expr": "TS_STD(REGRESI($close, SEQUENCE(60), 60),20) - TS_STD(REGRESI($close, SEQUENCE(60), 60),5)"}
 {"name": "ATR_ADJUSTED_BREAK", "expr": "($close-TS_MAX(DELAY($close,1),20))/ (ATR($high,$low,$close,14)+1e-12)"}
 {"name": "VOL_REVERSION_SPIKE", "expr": "(((TS_STD($return,10) < 0.015) & ($volume > 1.3 * TS_MEAN($volume,20)))) ? RANK($volume / TS_MEAN($volume,20)) : nan"}
 {"name": "LIQ_IMBALANCE_PRICE_IMPACT", "expr": "(((TS_SUM($net_foreign_val,3) > 0) & (TS_PCTCHANGE($close,3) > 0) & ($amount > PERCENTILE($amount,0.3))) ? RANK(INDUSTRY_NEUTRALIZE(TS_SUM($net_foreign_val,3)/(ATR($high,$low,$close,14)+0.0001), $industry)) : nan)"}
@@ -142,7 +142,7 @@
 {"name": "CHANNEL_MEANREVERT_EDGE", "expr": "-(($close-BB_MIDDLE($close,20))/(BB_UPPER($close,20)-BB_LOWER($close,20)+1e-12)) * (TS_STD($close,5)/TS_STD($close,20))"}
 {"name": "COV_SHRINK_OUTPERFORM", "expr": "((DELTA(TS_COVARIANCE($return,$bench_return,60),10) < 0) & ($return > $bench_return)) ? RANK($return - $bench_return) : nan"}
 {"name": "BENCH_VOL_SPIKE_ELG_SUPPORT", "expr": "((TS_PCTCHANGE($volume,5) > 0.2) & (TS_MEAN(MAX($net_foreign_val, 0),5) > TS_MEAN(ABS(MIN($net_foreign_val, 0)),5)) & ($return > 0)) ? RANK(TS_MEAN(MAX($net_foreign_val, 0),5) / TS_MEAN(ABS(MIN($net_foreign_val, 0)),5)) : nan"}
-{"name": "MOMENTUM_RESIDUAL_BLEND", "expr": "SLOPE($close,20) + SLOPE(REGRESI($close,60),20)"}
+{"name": "MOMENTUM_RESIDUAL_BLEND", "expr": "SLOPE($close,20) + SLOPE(REGRESI($close, SEQUENCE(60), 60),20)"}
 {"name": "QUIET_TREND_ACCUM", "expr": "(TS_STD($close,10)<TS_STD($close,30)) ? SLOPE($close,20) : -SLOPE($close,20)"}
 {"name": "TIME_DECAY_REVERSAL", "expr": "DECAYLINEAR(-TS_ZSCORE($close,20),5)"}
 {"name": "BENCH_ATR_LOW_BREAK", "expr": "(((ATR($bench_close,$bench_close,$bench_close,14) / $bench_close) < 0.02) & ($close >= TS_MAX($close,20))) ? RANK($close / TS_MAX($close,20)) : nan"}
@@ -217,7 +217,7 @@
 {"name": "INDUSTRY_TIDE_FOLLOW", "expr": "TS_CORR(INDUSTRY_NEUTRALIZE($return,$industry), $bench_return, 20) * SLOPE($close,10)"}
 {"name": "SHADOW_TRAP_DETECT", "expr": "(($high-MAX($open,$close))/($high-$low+1e-12)) * (COUNT($return<0,3)/3)"}
 {"name": "UP_CONSOLIDATE_40", "expr": "((TS_PCTCHANGE($close,20) > 0.1) & (TS_STD($close,10) < 0.02 * TS_MEAN($close,10))) ? RANK($close / DELAY($close,20)) : nan"}
-{"name": "HIGHDAY_PULLBACK_SCORE", "expr": "($close-TS_MIN($low, HIGHDAY($high,60)+1))/(TS_MAX($high, HIGHDAY($high,60)+1)-TS_MIN($low, HIGHDAY($high,60)+1)+1e-12)"}
+{"name": "HIGHDAY_PULLBACK_SCORE", "expr": "($close-TS_MIN($low,60))/(TS_MAX($high,60)-TS_MIN($low,60)+1e-12) * (HIGHDAY($high,60)/60)"}
 {"name": "PRICE_ABOVE_MA_BB", "expr": "(($close > TS_MEAN($close,10)) & ($close > BB_MIDDLE($close,20))) ? RANK($close / BB_MIDDLE($close,20)) : nan"}
 {"name": "ONINTRA_OVERNIGHT_DOMINANCE", "expr": "((((($open/DELAY($close,1))-1) > 0) & (($close/$open) > 1) & ((($open/DELAY($close,1))-1) > (($close/$open)-1)))) ? RANK((($open/DELAY($close,1))-1) / ((($close/$open)-1)+0.0001)) : nan"}
 {"name": "BENCH_DOWN_RELATIVE_STRENGTH", "expr": "(($bench_return < 0) & ($return > 0)) ? RANK($return - $bench_return) : nan"}

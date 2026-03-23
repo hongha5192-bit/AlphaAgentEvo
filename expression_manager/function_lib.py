@@ -991,23 +991,36 @@ def SLOPE(df: pd.DataFrame, p: int = 20):
     )
 
 
-@datatype_adapter
-def ATR(high_df: pd.DataFrame, low_df: pd.DataFrame, close_df: pd.DataFrame, p: int = 14):
+def ATR(high_df, low_df, close_df, p: int = 14):
     """Average True Range.
 
     TR = max(high - low, |high - prev_close|, |low - prev_close|)
     ATR = rolling mean of TR over p periods.
+    Returns a DataFrame with same index as inputs.
     """
-    prev_close = close_df.groupby('instrument').transform(lambda x: x.shift(1))
-    tr1 = high_df - low_df
-    tr2 = (high_df - prev_close).abs()
-    tr3 = (low_df - prev_close).abs()
+    # Ensure all inputs are DataFrames with single column
+    if isinstance(high_df, pd.Series):
+        high_df = high_df.to_frame('val')
+    if isinstance(low_df, pd.Series):
+        low_df = low_df.to_frame('val')
+    if isinstance(close_df, pd.Series):
+        close_df = close_df.to_frame('val')
+
+    h = high_df.iloc[:, 0]
+    l = low_df.iloc[:, 0]
+    c = close_df.iloc[:, 0]
+
+    prev_c = c.groupby('instrument').shift(1)
+    tr1 = (h - l).abs()
+    tr2 = (h - prev_c).abs()
+    tr3 = (l - prev_c).abs()
+
     true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-    true_range = true_range.to_frame(name=close_df.columns[0] if hasattr(close_df, 'columns') and len(close_df.columns) else 0)
-    true_range.index = close_df.index
-    return true_range.groupby('instrument').transform(
+    atr_series = true_range.groupby('instrument').transform(
         lambda x: x.rolling(p, min_periods=1).mean()
     )
+    # Return as Series (not DataFrame) so arithmetic with other Series works
+    return atr_series
 
 
 @datatype_adapter
