@@ -184,62 +184,50 @@ def execute_expression(factor_expr: str, data_path: str | Path | None = None,
         elif isinstance(factor_values, np.ndarray):
             factor_values = pd.Series(factor_values, index=df.index)
 
-        # Step 5: Compute IC (Information Coefficient) — correlation with $return
-        returns = _cached_columns['$return']
+        # Step 5: Compute portfolio-based IR (Qlib-style)
+        from backtest.qlib_backtester import compute_portfolio_ir
 
-        # Build combined df for IC calculation
-        combined = pd.DataFrame({
-            'factor': factor_values,
-            'ret': returns
-        }, index=df.index)
+        # Determine evaluation period
+        start_date = None
+        end_date = None
+        if period and period in _period_ranges:
+            start_date, end_date = _period_ranges[period]
 
-        # Filter to period's date range if specified
-        if period and period in _period_masks:
-            combined = combined.loc[_period_masks[period]]
+        # Get benchmark return
+        bench_return = None
+        if '$bench_return' in _cached_columns:
+            bench_series = _cached_columns['$bench_return']
+            # Extract unique datetime-level benchmark (same for all stocks)
+            bench_return = bench_series.groupby('datetime').first()
 
-        # Drop rows where factor or return is NaN/Inf
-        combined = combined.replace([np.inf, -np.inf], np.nan).dropna()
-
-        if len(combined) == 0:
-            return {
-                'success': False,
-                'score': 0.0,
-                'ic_mean': 0.0,
-                'ic_std': 0.0,
-                'ir': 0.0,
-                'error': 'Factor produced all NaN/Inf values',
-                'exec_time': time.time() - start_time,
-            }
-
-        # Rank IC per cross-section (datetime)
-        ic_series = combined.groupby('datetime').apply(
-            lambda g: g['factor'].corr(g['ret']) if len(g) > 5 else np.nan
-        ).dropna()
-
-        if len(ic_series) == 0:
-            return {
-                'success': False,
-                'score': 0.0,
-                'ic_mean': 0.0,
-                'ic_std': 0.0,
-                'ir': 0.0,
-                'error': 'Could not compute IC (insufficient cross-sectional data)',
-                'exec_time': time.time() - start_time,
-            }
-
-        ic_mean = float(ic_series.mean())
-        ic_std = float(ic_series.std()) if len(ic_series) > 1 else 1e-8
-        ir = ic_mean / (ic_std + 1e-8)
+        result = compute_portfolio_ir(
+            factor_values=factor_values,
+            price_df=df[['$open', '$close']],
+            bench_return=bench_return,
+            top_k=10,
+            n_drop=2,
+            rebalance_freq=5,
+            cost_buy=0.0013,
+            cost_sell=0.0013,
+            hold_thresh=2,
+            ann_scaler=252,
+            start_date=start_date,
+            end_date=end_date,
+        )
 
         exec_time = time.time() - start_time
 
         return {
-            'success': True,
-            'score': round(ir, 6),
-            'ic_mean': round(ic_mean, 6),
-            'ic_std': round(ic_std, 6),
-            'ir': round(ir, 6),
-            'error': None,
+            'success': result['success'],
+            'score': result['ir'],
+            'ir': result['ir'],
+            'annualized_return': result.get('annualized_return', 0.0),
+            'annualized_volatility': result.get('annualized_volatility', 0.0),
+            'sharpe': result.get('sharpe', 0.0),
+            'mdd': result.get('mdd', 0.0),
+            'total_return': result.get('total_return', 0.0),
+            'n_days': result.get('n_days', 0),
+            'error': result.get('error'),
             'exec_time': round(exec_time, 3),
         }
 

@@ -961,3 +961,110 @@ def BB_LOWER(price_df, window, n_jobs=-1):
         std = pd.concat([result for _, result in sorted(results, key=lambda x: x[0])])
     
     return middle_band - std
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Added operators for AlphaAgentEvo seed compatibility
+# ─────────────────────────────────────────────────────────────────────────────
+
+@datatype_adapter
+def SLOPE(df: pd.DataFrame, p: int = 20):
+    """Rolling linear regression slope over window p.
+
+    Equivalent to REGBETA(var, SEQUENCE(p), p) but implemented directly
+    for efficiency. Uses the closed-form OLS slope: β = Cov(y, t) / Var(t)
+    where t = 1, 2, ..., p.
+    """
+    def _slope(x):
+        n = len(x)
+        t = np.arange(1, n + 1, dtype=np.float64)
+        t_mean = t.mean()
+        x_mean = x.mean()
+        cov = ((t - t_mean) * (x - x_mean)).sum()
+        var = ((t - t_mean) ** 2).sum()
+        if var == 0:
+            return np.nan
+        return cov / var
+
+    return df.groupby('instrument').transform(
+        lambda x: x.rolling(p, min_periods=p).apply(_slope, raw=True)
+    )
+
+
+@datatype_adapter
+def ATR(high_df: pd.DataFrame, low_df: pd.DataFrame, close_df: pd.DataFrame, p: int = 14):
+    """Average True Range.
+
+    TR = max(high - low, |high - prev_close|, |low - prev_close|)
+    ATR = rolling mean of TR over p periods.
+    """
+    prev_close = close_df.groupby('instrument').transform(lambda x: x.shift(1))
+    tr1 = high_df - low_df
+    tr2 = (high_df - prev_close).abs()
+    tr3 = (low_df - prev_close).abs()
+    true_range = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    true_range = true_range.to_frame(name=close_df.columns[0] if hasattr(close_df, 'columns') and len(close_df.columns) else 0)
+    true_range.index = close_df.index
+    return true_range.groupby('instrument').transform(
+        lambda x: x.rolling(p, min_periods=1).mean()
+    )
+
+
+@datatype_adapter
+def TS_SKEW(df: pd.DataFrame, p: int = 20):
+    """Rolling skewness over window p."""
+    return df.groupby('instrument').transform(
+        lambda x: x.rolling(p, min_periods=max(3, p // 2)).skew()
+    )
+
+
+@datatype_adapter
+def TS_KURT(df: pd.DataFrame, p: int = 20):
+    """Rolling kurtosis over window p."""
+    return df.groupby('instrument').transform(
+        lambda x: x.rolling(p, min_periods=max(4, p // 2)).kurt()
+    )
+
+
+def INDUSTRY_NEUTRALIZE(signal_df: pd.DataFrame, industry_df: pd.DataFrame) -> pd.DataFrame:
+    """Remove industry-wide mean from signal, leaving stock-specific residual.
+
+    For each (datetime, industry) group, subtracts the group mean from
+    each stock's signal value. Stocks in the same industry on the same
+    day share the same adjustment.
+
+    Args:
+        signal_df: Factor values (datetime × instrument multi-index).
+        industry_df: Industry labels (same index, string values).
+
+    Returns:
+        Industry-neutralized signal with same shape/index as signal_df.
+    """
+    if isinstance(industry_df, pd.DataFrame):
+        industry_col = industry_df.iloc[:, 0].values
+    elif isinstance(industry_df, pd.Series):
+        industry_col = industry_df.values
+    else:
+        industry_col = industry_df
+
+    if isinstance(signal_df, pd.DataFrame):
+        signal_vals = signal_df.iloc[:, 0]
+    else:
+        signal_vals = signal_df
+
+    dt = signal_df.index.get_level_values('datetime')
+
+    # Build a temporary frame with reset index to avoid ambiguity
+    tmp = pd.DataFrame({
+        'signal': signal_vals.values,
+        'industry': industry_col,
+        'dt': dt,
+    })
+
+    group_mean = tmp.groupby(['dt', 'industry'])['signal'].transform('mean')
+    result_vals = tmp['signal'].values - group_mean.values
+
+    result = pd.Series(result_vals, index=signal_df.index)
+    if isinstance(signal_df, pd.DataFrame):
+        return result.to_frame(name=signal_df.columns[0])
+    return result
