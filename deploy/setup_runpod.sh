@@ -1,57 +1,66 @@
 #!/bin/bash
-# AlphaAgentEvo — Runpod Deployment Script
-# Installs Verl, sets up data, starts backtest API, launches training
+# AlphaAgentEvo — Runpod Deployment Script (Fixed)
+# Uses paper's MODIFIED Verl framework (not stock volcengine/verl)
 #
-# Usage:
-#   1. Rent Runpod with 4-10 GPUs (A100 80GB recommended)
-#   2. SSH into pod
-#   3. Run: bash setup_runpod.sh
-#
-# Prerequisites: CUDA, conda/python3.10, git
+# Fixes applied:
+#   1. Uses paper's Verl with custom tools (factor_tool, factor_ast)
+#   2. Backtest API matches paper's contract (POST /backtest)
+#   3. factor_tool.py patched for VN dates (2016-2023)
+#   4. batch_size=20 to match paper
+#   5. save_freq=10 to avoid checkpoint loss
 
 set -e
 echo "============================================================"
-echo "AlphaAgentEvo — Runpod Setup"
+echo "AlphaAgentEvo — Runpod Setup (VN Market)"
 echo "============================================================"
 
-# ── Config ──
 WORK_DIR="/root/AlphaAgentEvo"
+PAPER_VERL_DIR="/root/AlphaAgentEvo-paper-verl"
 MODEL_DIR="/root/models/Qwen3-4B-Thinking-2507"
 DATA_DIR="$WORK_DIR/data"
-VERL_DIR="$WORK_DIR/verl"
 N_GPUS=$(nvidia-smi -L | wc -l)
 
 echo "GPUs detected: $N_GPUS"
-echo "Work dir: $WORK_DIR"
 
-# ── Step 1: Clone repos ──
+# ── Step 1: Clone our repo (seeds, data, backtest, deploy) ──
 echo ""
-echo "[1/6] Cloning repos..."
+echo "[1/7] Cloning AlphaAgentEvo..."
 if [ ! -d "$WORK_DIR" ]; then
     git clone https://github.com/hongha5192-bit/AlphaAgentEvo.git $WORK_DIR
 fi
 
-# Clone Verl (paper's framework)
-if [ ! -d "$VERL_DIR" ]; then
-    # Use the paper's Verl fork from AlphaAgent repo
-    git clone --depth 1 https://github.com/volcengine/verl.git $VERL_DIR
+# ── Step 2: Clone paper's modified Verl (has custom tools) ──
+echo ""
+echo "[2/7] Setting up paper's modified Verl..."
+# Paper's Verl is in the AlphaAgent repo under AlphaAgentEvo/verl/
+if [ ! -d "$PAPER_VERL_DIR" ]; then
+    git clone --depth 1 https://github.com/hongha5192-bit/AlphaAgent.git /tmp/AlphaAgent-clone
+    cp -r /tmp/AlphaAgent-clone/AlphaAgentEvo/verl $PAPER_VERL_DIR
+    rm -rf /tmp/AlphaAgent-clone
 fi
 
-# ── Step 2: Install dependencies ──
+# Patch factor_tool.py for VN dates
+echo "Patching factor_tool.py for VN market..."
+cp $WORK_DIR/deploy/factor_tool_vn.py $PAPER_VERL_DIR/verl/tools/factor_tool.py
+
+echo "Paper's Verl tools:"
+ls $PAPER_VERL_DIR/verl/tools/*.py
+
+# ── Step 3: Install dependencies ──
 echo ""
-echo "[2/6] Installing dependencies..."
-pip install -q torch transformers>=5.2.0 peft accelerate
+echo "[3/7] Installing dependencies..."
+pip install -q torch transformers peft accelerate
 pip install -q fastapi uvicorn requests pandas numpy pyarrow
 pip install -q ray[default] hydra-core datasets
 pip install -q Levenshtein jmespath
-pip install -q sglang  # Inference engine for Verl rollout
+pip install -q sglang
 
-cd $VERL_DIR
-pip install -q --no-deps -e .
+cd $PAPER_VERL_DIR
+pip install -q --no-deps -e . 2>/dev/null || pip install -q -e .
 
-# ── Step 3: Download model ──
+# ── Step 4: Download model ──
 echo ""
-echo "[3/6] Downloading Qwen3-4B-Thinking-2507..."
+echo "[4/7] Downloading Qwen3-4B-Thinking-2507..."
 if [ ! -d "$MODEL_DIR" ]; then
     pip install -q huggingface_hub
     python3 -c "
@@ -61,66 +70,59 @@ snapshot_download('Qwen/Qwen3-4B', local_dir='$MODEL_DIR')
 fi
 echo "Model ready at $MODEL_DIR"
 
-# ── Step 4: Prepare data ──
+# ── Step 5: Setup data ──
 echo ""
-echo "[4/6] Preparing data..."
-# daily_pv_v2.h5 needs to be uploaded separately (9.6MB)
-# Check if it exists
+echo "[5/7] Setting up data..."
 if [ ! -f "$WORK_DIR/backtest/data/daily_pv.h5" ]; then
-    echo "WARNING: daily_pv.h5 not found!"
-    echo "Upload daily_pv_v2.h5 to $WORK_DIR/backtest/data/daily_pv.h5"
-    echo "Or create symlink from your data location"
+    echo "⚠️  WARNING: daily_pv_v2.h5 not found!"
+    echo "Upload it: scp daily_pv_v2.h5 root@<pod>:$WORK_DIR/backtest/data/daily_pv.h5"
 fi
 
-# Verify data files
-echo "Checking data files:"
-for f in train.parquet val.parquet test.parquet vn_seeds_300.jsonl; do
-    if [ -f "$DATA_DIR/$f" ]; then
-        echo "  ✅ $f"
-    else
-        echo "  ❌ $f MISSING"
-    fi
+echo "Checking files:"
+for f in train.parquet val.parquet test.parquet vn_seeds_300.jsonl seed_backtest_results.json sector_map.json; do
+    [ -f "$DATA_DIR/$f" ] && echo "  ✅ $f" || echo "  ❌ $f MISSING"
 done
 
-# ── Step 5: Start backtest API ──
+# ── Step 6: Start Verl-compatible backtest API ──
 echo ""
-echo "[5/6] Starting backtest API..."
+echo "[6/7] Starting backtest API (Verl-compatible)..."
 cd $WORK_DIR
-nohup python3 backtest/api_server.py > /tmp/api.log 2>&1 &
+export PYTHONPATH=$PYTHONPATH:$WORK_DIR:$PAPER_VERL_DIR
+
+nohup python3 deploy/api_server_verl.py > /tmp/api.log 2>&1 &
 API_PID=$!
 echo "API PID: $API_PID"
 
-# Wait for API
 for i in $(seq 1 30); do
     if curl -s http://localhost:8001/health > /dev/null 2>&1; then
-        echo "Backtest API ready on port 8001"
+        echo "✅ Backtest API ready on port 8001 (/backtest endpoint)"
         break
     fi
     sleep 2
 done
 
-# ── Step 6: Print launch command ──
+# Test the API with paper's expected format
+echo "Testing API contract..."
+RESULT=$(curl -s -X POST http://localhost:8001/backtest \
+    -H "Content-Type: application/json" \
+    -d '{"exprs": {"test": "RANK($close)"}}')
+echo "API test result: $RESULT"
+
+# ── Step 7: Print training command ──
 echo ""
-echo "[6/6] Setup complete!"
+echo "[7/7] Setup complete!"
 echo ""
 echo "============================================================"
-echo "To start training, run:"
+echo "READY TO TRAIN"
 echo "============================================================"
 echo ""
-echo "cd $WORK_DIR"
-echo "bash deploy/run_training.sh"
+echo "GPUs: $N_GPUS"
+echo "Batch size: 20 (matching paper)"
+echo "Model: $MODEL_DIR"
+echo "Verl: $PAPER_VERL_DIR (paper's modified version)"
+echo "API: http://localhost:8001/backtest (Verl-compatible)"
 echo ""
-echo "Or manually:"
-echo ""
-echo "python3 -m verl.trainer.main_ppo \\"
-echo "    --config-path=$VERL_DIR/examples/sglang_multiturn/config \\"
-echo "    --config-name=search_multiturn_grpo \\"
-echo "    data.train_files=$DATA_DIR/train.parquet \\"
-echo "    data.val_files=$DATA_DIR/val.parquet \\"
-echo "    data.train_batch_size=20 \\"
-echo "    actor_rollout_ref.model.path=$MODEL_DIR \\"
-echo "    trainer.n_gpus_per_node=$N_GPUS \\"
-echo "    trainer.total_training_steps=150 \\"
-echo "    trainer.save_freq=10"
+echo "To start training:"
+echo "  cd $WORK_DIR && bash deploy/run_training.sh"
 echo ""
 echo "============================================================"
