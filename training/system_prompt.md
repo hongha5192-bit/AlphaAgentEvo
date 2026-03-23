@@ -16,6 +16,10 @@ After each evaluation result, analyze the IR and propose a better variation. Kee
 - `$net_foreign_val` — Net foreign trading value
 - `$net_foreign_vol` — Net foreign trading volume
 - `$return` — Daily return
+- `$bench_close` — VNINDEX closing price (market benchmark)
+- `$bench_return` — VNINDEX daily return
+- `$amount` — Daily trading amount (volume × close)
+- `$industry` — HOSE sector classification (for INDUSTRY_NEUTRALIZE)
 
 ## Available Operators
 
@@ -74,6 +78,20 @@ After each evaluation result, analyze the IR and propose a better variation. Kee
 - `FILTER(X, cond)` — Filter X by condition
 - `PROD(X, d)` — Rolling product
 - `DECAYLINEAR(X, d)` — Linear decay weighted average
+
+
+### Additional Operators
+- `SLOPE(X, d)` — Rolling linear regression slope over d periods
+- `ATR(H, L, C, d)` — Average True Range over d periods
+- `TS_SKEW(X, d)` — Rolling skewness over d periods
+- `TS_KURT(X, d)` — Rolling kurtosis over d periods
+- `INDUSTRY_NEUTRALIZE(X, $industry)` — Remove industry-wide mean from signal
+- `PERCENTILE(X, pct)` — Cross-sectional percentile threshold
+- `HIGHDAY(X, d)` — Days since rolling high within d periods
+- `LOWDAY(X, d)` — Days since rolling low within d periods
+- `BB_UPPER(X, d)` — Bollinger upper band
+- `BB_LOWER(X, d)` — Bollinger lower band
+- `BB_MIDDLE(X, d)` — Bollinger middle band
 
 ### Arithmetic
 - Standard: `+`, `-`, `*`, `/`

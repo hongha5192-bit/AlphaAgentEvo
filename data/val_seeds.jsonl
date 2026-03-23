@@ -1,0 +1,30 @@
+{"name": "REL_VOLUME_CORR_SWITCH", "expr": "((DELTA(TS_CORR($volume,$volume,60),10) < 0) & ($return > 0)) ? RANK(-DELTA(TS_CORR($volume,$volume,60),10)) : nan"}
+{"name": "FLOW_IMBALANCE_PULSE", "expr": "(MAX($net_foreign_val, 0) - ABS(MIN($net_foreign_val, 0))) / (TS_MEAN($amount,20)+1e-12)"}
+{"name": "BENCH_ARGMAX_NEAR_HIGH_DIVER", "expr": "((TS_ARGMAX($bench_close,60) <= 3) & ($return > $bench_return)) ? RANK($return - $bench_return) : nan"}
+{"name": "DDREC_HILO_SPREAD_NARROW_UP", "expr": "(((DELTA(ATR($high,$low,$close,14)/$close,5) < 0) & ($close > TS_MEAN($close,20)) & ($amount > PERCENTILE($amount,0.3))) ? RANK(INDUSTRY_NEUTRALIZE(-DELTA(ATR($high,$low,$close,14)/$close,5), $industry)) : nan)"}
+{"name": "VWAP_BAND_ZBREAK", "expr": "(((((($close-($amount/$volume))/(TS_STD($close-($amount/$volume),20)+0.0001)) > 1.5) & (TS_MEAN($volume,5) > TS_MEAN($volume,20)) & ($amount > PERCENTILE($amount,0.3)))) ? RANK(INDUSTRY_NEUTRALIZE((($close-($amount/$volume))/(TS_STD($close-($amount/$volume),20)+0.0001)), $industry)) : nan)"}
+{"name": "TAIL_RISK_AWARE", "expr": "-TS_KURT($return,60)"}
+{"name": "CLOSE_TO_RANGE_MID", "expr": "$close - (TS_MAX($high,20)+TS_MIN($low,20))/2"}
+{"name": "CHANNEL_SQUEEZE_BREAK", "expr": "(BB_UPPER($close,20)-BB_LOWER($close,20)) / (TS_STD($close,20)+1e-12) * SIGN($close-BB_MIDDLE($close,20)) * -1"}
+{"name": "RESIDUAL_OUTPERFORM", "expr": "((REGRESI($return,$bench_return,60) > 0) & ($bench_return < 0)) ? RANK(REGRESI($return,$bench_return,60)) : nan"}
+{"name": "Z_SCORE_TURNAROUND", "expr": "-TS_ZSCORE($close,60) * (TS_STD($close,5)/TS_STD($close,60))"}
+{"name": "BB_BREAKDOWN_REBOUND", "expr": "(($close < BB_LOWER($close,20)) & ($close > DELAY($close,1))) ? RANK($close / BB_LOWER($close,20)) : nan"}
+{"name": "MONEYFLOW_INERTIA", "expr": "TS_MEAN($net_foreign_val,10) / (TS_STD($net_foreign_val,10)+1e-12)"}
+{"name": "MACD_BULLISH", "expr": "((MACD($close,12,26) > 0) & ($close > TS_MEAN($close,10))) ? RANK(MACD($close,12,26)) : nan"}
+{"name": "ZIGZAG_CHANNEL_TILT", "expr": "SLOPE(TS_MAX($high,60),5) - SLOPE(TS_MIN($low,60),5)"}
+{"name": "RANGE_CONTRA_SLOPE", "expr": "-(SLOPE($close,10)) * (1 - ($close-TS_MIN($low,20))/(TS_MAX($high,20)-TS_MIN($low,20)+1e-12))"}
+{"name": "SMALLLOT_FLOW", "expr": "((ABS(MIN($net_foreign_val, 0)) > DELAY(ABS(MIN($net_foreign_val, 0)),1)) & (ABS(MIN($net_foreign_val, 0)) > DELAY(ABS(MIN($net_foreign_val, 0)),2))) ? RANK(ABS(MIN($net_foreign_val, 0))) : nan"}
+{"name": "VOLUME_SURGE_POSITION", "expr": "($volume/TS_MEAN($volume,20))(2TS_RANK($close,20)-1)"}
+{"name": "ONINTRA_GAPDOWN_REBOUND", "expr": "(((($open/DELAY($close,1)) < 0.98) & ($close > $open) & (TS_MEAN($volume,5) > TS_MEAN($volume,20))) ? RANK(INDUSTRY_NEUTRALIZE(($close/$open)-1, $industry)) : nan)"}
+{"name": "VN_VAL_FFLOW_BREAKOUT_10", "expr": "((TS_SUM($net_foreign_val,10)>0)&($close>TS_MAX(DELAY($close,1),10))&($volume>TS_MEAN($volume,20)))?RANK(TS_SUM($net_foreign_val,10)):nan"}
+{"name": "VN_VAL_FFLOW_REVERSAL_RSI", "expr": "((RSI($close,14)<35)&(TS_SUM($net_foreign_val,3)>0)&($close>DELAY($close,1)))?RANK(-TS_ZSCORE($close,20)):nan"}
+{"name": "VN_VAL_BENCH_WEAK_STRONG", "expr": "(($bench_return<0)&($return>0)&($net_foreign_val>0))?RANK(INDUSTRY_NEUTRALIZE($return-$bench_return,$industry)):nan"}
+{"name": "VN_VAL_VOL_COMPRESS_FLOW", "expr": "((TS_STD($return,5)<TS_STD($return,20))&(TS_SUM($net_foreign_val,5)>0))?RANK(INV(1+TS_STD($return,5))*$net_foreign_val):nan"}
+{"name": "VN_VAL_SOFT_FLOW_MOM", "expr": "TS_PCTCHANGE($close,5)*SIGN(TS_SUM($net_foreign_val,5))*($volume/(TS_MEAN($volume,20)+1e-8))"}
+{"name": "VN_VAL_IND_FLOW_RANK", "expr": "((ZSCORE(INDUSTRY_NEUTRALIZE(TS_SUM($net_foreign_val,10),$industry))>1)&($return>0))?RANK(INDUSTRY_NEUTRALIZE(TS_SUM($net_foreign_val,10),$industry)):nan"}
+{"name": "VN_VAL_FFLOW_ACCUM_20", "expr": "((TS_SUM($net_foreign_val,20)>0)&($close>TS_MEAN($close,60))&(TS_STD($return,10)<TS_STD($return,30)))?RANK(TS_SUM($net_foreign_val,20)):nan"}
+{"name": "VN_VAL_CORR_BENCH_NEG", "expr": "((TS_CORR($return,$bench_return,20)<0.3)&(TS_SUM($net_foreign_val,5)>0))?RANK(-TS_CORR($return,$bench_return,20)):nan"}
+{"name": "VN_VAL_FFLOW_GAP_UP", "expr": "(($open>DELAY($close,1)*1.02)&($net_foreign_val>0)&($close>$open))?RANK($net_foreign_val/($volume*$close+1e-12)):nan"}
+{"name": "VN_VAL_SOFT_REGIME_FLOW", "expr": "(TS_STD($return,5)/(TS_STD($return,30)+1e-8)-1)*SIGN(TS_SUM($net_foreign_val,10))*SIGN($return)"}
+{"name": "VN_VAL_EMA_CROSS_FLOW", "expr": "((EMA($close,5)>EMA($close,20))&(DELAY(EMA($close,5),1)<DELAY(EMA($close,20),1))&($net_foreign_val>0))?RANK(EMA($close,5)/EMA($close,20)):nan"}
+{"name": "VN_VAL_FFLOW_PERSISTENT", "expr": "((COUNT($net_foreign_val>0,10)>=7)&($return>0))?RANK(COUNT($net_foreign_val>0,10)/10):nan"}
