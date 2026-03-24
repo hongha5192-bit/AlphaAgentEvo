@@ -43,9 +43,25 @@ cd "$VERL_DIR"
 pip install --upgrade pip setuptools wheel
 pip uninstall -y sglang sgl-kernel flashinfer-python verl >/dev/null 2>&1 || true
 pip install "torch==2.6.0" "tensordict<=0.6.2" "sglang[srt,openai]==0.4.6.post5" "torch-memory-saver>=0.0.5"
-pip install flash-attn --no-build-isolation
+# Install verl (--no-deps to prevent torch version drift!)
 pip install --no-deps -e .
 pip install setuptools
+
+# Patch flash_attn imports (ABI mismatch on H100 with torch 2.6.0)
+# flash_attn.bert_padding is only used for use_remove_padding=True
+# We disable it and use use_remove_padding=False in train.sh instead
+for f in verl/workers/actor/dp_actor.py verl/workers/fsdp_workers.py verl/workers/critic/dp_critic.py; do
+    python -c "
+lines = open('$f').readlines()
+for i, line in enumerate(lines):
+    if 'from flash_attn.bert_padding import' in line and 'if is_cuda_available' in (lines[i-1] if i > 0 else ''):
+        lines[i] = '    pass  # flash_attn removed (ABI issue on H100)\n'
+open('$f','w').writelines(lines)
+"
+done
+
+# Clear stale .pyc files
+find . -name "*.pyc" -delete
 pip install fastapi uvicorn requests pyarrow tables h5py Levenshtein jmespath joblib scipy pyparsing tensorboard
 
 # Step 4: Install libnuma
