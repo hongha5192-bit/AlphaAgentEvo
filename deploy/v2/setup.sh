@@ -32,10 +32,13 @@ USE_MEGATRON=0 bash scripts/install_vllm_sglang_mcore.sh
 pip install --no-deps -e .
 pip install fastapi uvicorn requests pyarrow tables h5py Levenshtein jmespath joblib scipy pyparsing tensorboard
 
-# ── Step 4: Copy our factor_tool into Verl ──
-echo "[4/6] Install factor_tool"
+# ── Step 4: Copy our factor_tool + reward into Verl ──
+echo "[4/6] Install factor_tool + reward"
 cp /workspace/AlphaAgentEvo/deploy/v2/factor_tool.py $WORK/verl/verl/tools/factor_tool.py
+mkdir -p $WORK/verl/examples/sglang_multiturn/config/tool_config
 cp /workspace/AlphaAgentEvo/deploy/v2/factor_tool_config.yaml $WORK/verl/examples/sglang_multiturn/config/tool_config/factor_tool_config.yaml
+mkdir -p $WORK/verl/verl/utils/reward_score
+cp /workspace/AlphaAgentEvo/deploy/v2/factor_reward.py $WORK/verl/verl/utils/reward_score/factor.py
 
 # ── Step 5: Copy data ──
 echo "[5/6] Copy data"
@@ -45,13 +48,23 @@ cp /workspace/AlphaAgentEvo/deploy/v2/test.parquet $WORK/data/
 ln -sf /workspace/AlphaAgentEvo/backtest $WORK/backtest
 ln -sf /workspace/AlphaAgentEvo/expression_manager $WORK/expression_manager
 
-# ── Step 6: Verify ──
-echo "[6/6] Verify"
+# ── Step 6: Install libnuma (needed by sgl_kernel) ──
+echo "[6/7] Install libnuma"
+apt-get update -qq && apt-get install -y -qq libnuma-dev > /dev/null 2>&1 || true
+ldconfig
+
+# ── Step 7: Verify ──
+echo "[7/7] Verify"
+# Check critical files exist
+for f in $WORK/data/train.parquet $WORK/data/val.parquet $WORK/verl/verl/tools/factor_tool.py $WORK/verl/verl/tools/base_tool.py $WORK/verl/verl/utils/reward_score/factor.py $WORK/verl/examples/sglang_multiturn/config/tool_config/factor_tool_config.yaml; do
+    [ -f "$f" ] && echo "  OK: $f" || { echo "  MISSING: $f"; exit 1; }
+done
 python -c "
 import sglang; print(f'sglang OK')
 import verl; print(f'verl OK')
 import flash_attn; print(f'flash_attn OK')
 import ray; print(f'ray OK')
+from sgl_kernel import common_ops; print(f'sgl_kernel OK (libnuma working)')
 print('ALL OK')
 "
 
