@@ -36,8 +36,12 @@ pip uninstall -y sglang sgl-kernel flashinfer-python verl 2>/dev/null || true
 # Install the exact versions that v0.4.1 expects
 pip install "torch==2.6.0" "tensordict<=0.6.2" "sglang[srt,openai]==0.4.6.post5" "torch-memory-saver>=0.0.5"
 
+# Install flash-attn (hard requirement — dp_actor.py imports flash_attn.bert_padding)
+pip install flash-attn --no-build-isolation
+
 # Install verl itself
-pip install -e .
+pip install --no-deps -e .
+pip install setuptools
 
 # Our extras
 pip install fastapi uvicorn requests pyarrow tables h5py Levenshtein jmespath joblib scipy pyparsing tensorboard
