@@ -11,6 +11,9 @@ N_GPUS=$(nvidia-smi -L | wc -l)
 eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
 conda activate verl310
 
+# Install libnuma if missing (lost on container restart)
+ldconfig -p | grep -q libnuma || { apt-get update -qq && apt-get install -y -qq libnuma-dev > /dev/null 2>&1 && ldconfig; }
+
 export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 export PYTHONPATH=$WORK:$VERL:$WORK/backtest:$WORK/expression_manager:$PYTHONPATH
 export HYDRA_FULL_ERROR=1
