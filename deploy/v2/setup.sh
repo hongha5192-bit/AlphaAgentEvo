@@ -1,42 +1,50 @@
 #!/bin/bash
-# AlphaAgentEvo v2 — Clean Setup on Official Verl v0.6.1
-# Uses verl v0.6.1 + sglang 0.5.5 (from setup.py, NOT install script)
+# AlphaAgentEvo v2 — Verl v0.4.1 + sglang 0.4.6.post5 + torch 2.6.0
+# This is the stable, tested combo with explicit multi-turn tool calling support
 set -e
 
 echo "============================================================"
-echo "AlphaAgentEvo v2 — Verl v0.6.1 + sglang 0.5.5 Setup"
+echo "AlphaAgentEvo v2 — Verl v0.4.1 (stable multi-turn)"
 echo "============================================================"
 
 WORK=/workspace/v2
+
+# ── Step 1: Fresh conda env ──
+echo "[1/7] Create fresh conda env"
+eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
+conda create -n verl041 python=3.10 -y 2>/dev/null || true
+conda activate verl041
+echo "Python: $(python --version)"
+echo "Env: $CONDA_DEFAULT_ENV"
+
 mkdir -p $WORK/data $WORK/logs $WORK/checkpoints
 
-# ── Step 1: Conda env ──
-echo "[1/7] Python 3.10 env"
-eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
-conda activate verl310 || { echo "Create env first: conda create -n verl310 python=3.10 -y"; exit 1; }
-echo "Python: $(python --version)"
+# ── Step 2: Clone Verl v0.4.1 ──
+echo "[2/7] Clone Verl v0.4.1"
+rm -rf $WORK/verl
+git clone --branch v0.4.1 --depth 1 https://github.com/verl-project/verl.git $WORK/verl
 
-# ── Step 2: Clone Verl v0.6.1 (pinned release, not HEAD) ──
-echo "[2/7] Clone Verl v0.6.1"
-if [ ! -d "$WORK/verl" ]; then
-    git clone --branch v0.6.1 --depth 1 https://github.com/verl-project/verl.git $WORK/verl
-fi
-
-# ── Step 3: Install Verl + sglang (from setup.py, not install script) ──
-echo "[3/7] Install Verl + sglang 0.5.5"
+# ── Step 3: Install exact pinned versions ──
+echo "[3/7] Install torch 2.6.0 + sglang 0.4.6.post5"
 cd $WORK/verl
-# Install non-sglang deps from script (skip sglang's stale 0.5.2 pin)
-USE_MEGATRON=0 USE_SGLANG=0 bash scripts/install_vllm_sglang_mcore.sh
-# Install verl + correct sglang from setup.py (pins sglang==0.5.5)
-pip install -e ".[sglang]"
+pip install --upgrade pip setuptools wheel
+pip uninstall -y sglang sgl-kernel flashinfer-python verl 2>/dev/null || true
+
+# Install the exact versions that v0.4.1 expects
+pip install "torch==2.6.0" "tensordict<=0.6.2" "sglang[srt,openai]==0.4.6.post5" "torch-memory-saver>=0.0.5"
+
+# Install verl itself
+pip install -e .
+
+# Our extras
 pip install fastapi uvicorn requests pyarrow tables h5py Levenshtein jmespath joblib scipy pyparsing tensorboard
 
-# ── Step 4: Install libnuma (needed by sgl_kernel) ──
+# ── Step 4: Install libnuma ──
 echo "[4/7] Install libnuma"
 apt-get update -qq && apt-get install -y -qq libnuma-dev > /dev/null 2>&1 || true
 ldconfig
 
-# ── Step 5: Copy our factor_tool + reward into Verl ──
+# ── Step 5: Copy factor_tool + reward ──
 echo "[5/7] Install factor_tool + reward"
 cp /workspace/AlphaAgentEvo/deploy/v2/factor_tool.py $WORK/verl/verl/tools/factor_tool.py
 mkdir -p $WORK/verl/examples/sglang_multiturn/config/tool_config
@@ -54,15 +62,15 @@ ln -sf /workspace/AlphaAgentEvo/expression_manager $WORK/expression_manager
 
 # ── Step 7: Verify ──
 echo "[7/7] Verify"
-for f in $WORK/data/train.parquet $WORK/data/val.parquet $WORK/verl/verl/tools/factor_tool.py $WORK/verl/verl/tools/base_tool.py $WORK/verl/verl/utils/reward_score/factor.py $WORK/verl/examples/sglang_multiturn/config/tool_config/factor_tool_config.yaml; do
+for f in $WORK/data/train.parquet $WORK/data/val.parquet $WORK/verl/verl/tools/factor_tool.py $WORK/verl/verl/tools/base_tool.py $WORK/verl/verl/utils/reward_score/factor.py; do
     [ -f "$f" ] && echo "  OK: $f" || { echo "  MISSING: $f"; exit 1; }
 done
 python -c "
-import sglang; print(f'sglang {sglang.__version__} OK')
-from sglang.srt.managers.io_struct import ContinueGenerationReqInput; print('ContinueGenerationReqInput OK')
+import torch; print(f'torch {torch.__version__}')
+import sglang; print(f'sglang {sglang.__version__}')
+import tensordict; print(f'tensordict {tensordict.__version__}')
 import verl; print(f'verl OK')
 import ray; print(f'ray OK')
-from sgl_kernel import common_ops; print(f'sgl_kernel OK (libnuma working)')
 print('ALL OK')
 "
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# AlphaAgentEvo v2 — Training Launch (Official Verl + sglang multi-turn)
+# AlphaAgentEvo v2 — Verl v0.4.1 + sglang 0.4.6.post5
 set -x
 
 WORK=/workspace/v2
@@ -9,7 +9,7 @@ DATA=$WORK/data
 N_GPUS=$(nvidia-smi -L | wc -l)
 
 eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
-conda activate verl310
+conda activate verl041
 
 # Install libnuma if missing (lost on container restart)
 ldconfig -p | grep -q libnuma || { apt-get update -qq && apt-get install -y -qq libnuma-dev > /dev/null 2>&1 && ldconfig; }
