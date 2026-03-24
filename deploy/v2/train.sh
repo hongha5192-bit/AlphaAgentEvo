@@ -11,6 +11,7 @@ N_GPUS=$(nvidia-smi -L | wc -l)
 eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
 conda activate verl310
 
+export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
 export PYTHONPATH=$WORK:$VERL:$WORK/backtest:$WORK/expression_manager:$PYTHONPATH
 export HYDRA_FULL_ERROR=1
 export CUDA_VISIBLE_DEVICES=$(seq -s, 0 $((N_GPUS-1)))
