@@ -41,8 +41,8 @@ python -m verl.trainer.main_ppo \
     --config-path="$VERL/examples/sglang_multiturn/config" \
     --config-name='search_multiturn_grpo' \
     algorithm.adv_estimator=grpo \
-    data.train_batch_size=20 \
-    data.val_batch_size=10 \
+    data.train_batch_size=$((N_GPUS * 7)) \
+    data.val_batch_size=$N_GPUS \
     data.max_prompt_length=4096 \
     data.max_response_length=10000 \
     data.filter_overlong_prompts=True \
@@ -53,7 +53,7 @@ python -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.optim.lr=1e-6 \
     actor_rollout_ref.actor.optim.lr_warmup_steps_ratio=0.02 \
     actor_rollout_ref.model.use_remove_padding=True \
-    actor_rollout_ref.actor.ppo_mini_batch_size=20 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=$((N_GPUS * 7)) \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.use_kl_loss=True \
     actor_rollout_ref.actor.kl_loss_coef=0.001 \
