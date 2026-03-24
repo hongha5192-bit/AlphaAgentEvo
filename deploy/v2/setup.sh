@@ -12,7 +12,10 @@ WORK=/workspace/v2
 # ── Step 1: Fresh conda env ──
 echo "[1/7] Create fresh conda env"
 eval "$(/workspace/miniconda/bin/conda shell.bash hook)"
-conda create -n verl041 python=3.10 -y 2>/dev/null || true
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main 2>/dev/null || true
+conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r 2>/dev/null || true
+rm -rf /workspace/miniconda/envs/verl310 2>/dev/null || true
+conda create -n verl041 python=3.10 -y || true
 conda activate verl041
 echo "Python: $(python --version)"
 echo "Env: $CONDA_DEFAULT_ENV"
